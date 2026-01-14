@@ -11,4 +11,7 @@ builder.Services
     .AddApplicationInsightsTelemetryWorkerService()
     .ConfigureFunctionsApplicationInsights();
 
+// Add HttpClient for calling the image generation service
+builder.Services.AddHttpClient();
+
 builder.Build().Run();
