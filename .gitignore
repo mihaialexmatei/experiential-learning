@@ -433,3 +433,14 @@ Thumbs.db
 
 # Azure
 local.settings.json
+
+# ESP32 Build Files
+build/
+sdkconfig.old
+.pio/
+.vscode/
+managed_components/
+dependencies.lock
+
+Code/esp32/esp-diffuser/components/
+Code/esp32/esp-diffuser/managed_components/

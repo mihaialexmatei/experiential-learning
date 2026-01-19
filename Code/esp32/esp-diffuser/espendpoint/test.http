@@ -1,0 +1,57 @@
+### ESP Diffuser Control - Test Requests
+### Base URL
+@baseUrl = https://espendpointacess.azurewebsites.net/api
+
+###############################################
+# ACTIVATE DEVICE ENDPOINTS
+###############################################
+
+### Activate esp0-breach for 5 minutes
+GET {{baseUrl}}/esp0-breach/5
+
+### Activate esp0-breach for 1 minute
+GET {{baseUrl}}/esp0-breach/1
+
+### Activate esp1-forest for 5 minutes
+GET {{baseUrl}}/esp1-forest/5
+
+### Activate esp1-forest for 1 minute
+GET {{baseUrl}}/esp1-forest/1
+
+### Activate esp1-forest for 10 minutes
+GET {{baseUrl}}/esp1-forest/10
+
+###############################################
+# STOP DEVICE ENDPOINTS
+###############################################
+
+### Stop esp0-breach
+GET {{baseUrl}}/esp0-breach/stop
+
+### Stop esp1-forest
+GET {{baseUrl}}/esp1-forest/stop
+
+###############################################
+# STOP ALL DEVICES
+###############################################
+
+### Stop all devices
+GET {{baseUrl}}/stop-all
+
+###############################################
+# TEST SEQUENCE
+###############################################
+
+### Test sequence: Activate esp0-breach for 1 min
+GET {{baseUrl}}/esp0-breach/1
+
+### Wait a few seconds, then stop it
+GET {{baseUrl}}/esp0-breach/stop
+
+### Activate both devices
+GET {{baseUrl}}/esp0-breach/5
+###
+GET {{baseUrl}}/esp1-forest/5
+
+### Stop all devices at once
+GET {{baseUrl}}/stop-all
