@@ -28,8 +28,8 @@
 
 // Azure IoT Hub Configuration
 #define IOT_HUB_HOSTNAME "espcontrol.azure-devices.net"
-#define DEVICE_ID        "esp1-forest"
-#define DEVICE_KEY       "aRMvZA5LwepBYpoKKTAgdFn11DJVkFl3J6LNq/mbdMY="
+#define DEVICE_ID        "esp2-garden"
+#define DEVICE_KEY       "/YZltTRS93nXap3INSd/EauBdsxJ4RCeuWDK75QrvDQ="
 
 // Define the relay control pin
 #define RELAY_PIN GPIO_NUM_16

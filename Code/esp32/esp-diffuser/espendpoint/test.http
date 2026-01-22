@@ -7,7 +7,7 @@
 ###############################################
 
 ### Activate esp0-breach for 5 minutes
-GET {{baseUrl}}/esp0-breach/5
+GET {{baseUrl}}/esp0-beach/5
 
 ### Activate esp0-breach for 1 minute
 GET {{baseUrl}}/esp0-breach/1
@@ -21,6 +21,18 @@ GET {{baseUrl}}/esp1-forest/1
 ### Activate esp1-forest for 10 minutes
 GET {{baseUrl}}/esp1-forest/10
 
+### Activate esp2-garden for 5 minutes
+GET {{baseUrl}}/esp2-garden/5
+
+### Activate esp2-garden for 1 minute
+GET {{baseUrl}}/esp2-garden/1
+
+### Activate esp3-mountain for 5 minutes
+GET {{baseUrl}}/esp3-mountain/5
+
+### Activate esp3-mountain for 1 minute
+GET {{baseUrl}}/esp3-mountain/1
+
 ###############################################
 # STOP DEVICE ENDPOINTS
 ###############################################
@@ -30,6 +42,12 @@ GET {{baseUrl}}/esp0-breach/stop
 
 ### Stop esp1-forest
 GET {{baseUrl}}/esp1-forest/stop
+
+### Stop esp2-garden
+GET {{baseUrl}}/esp2-garden/stop
+
+### Stop esp3-mountain
+GET {{baseUrl}}/esp3-mountain/stop
 
 ###############################################
 # STOP ALL DEVICES

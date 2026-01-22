@@ -2,11 +2,11 @@
 
 # Test Azure Function App Deployment
 
-echo "🧪 Testing Azure Function App: audiopromptfunc2026"
+echo "🧪 Testing Azure Function App: endpoint"
 echo "=================================================="
 echo ""
 
-FUNCTION_URL="https://audiopromptfunc2026.azurewebsites.net"
+FUNCTION_URL="https://endpoint-gtfbdtb7bwf2hsfb.westeurope-01.azurewebsites.net"
 
 # Test 1: Check if the function app is accessible
 echo "1️⃣ Testing function app availability..."
@@ -75,8 +75,11 @@ echo "=================================================="
 echo "📋 Your Azure Function Endpoints:"
 echo "=================================================="
 echo ""
-echo "🎤 Audio to Image (Complete Pipeline):"
+echo "🎤 Audio to Image (Complete Pipeline - Returns PNG):"
 echo "   POST $FUNCTION_URL/api/audio-to-image"
+echo ""
+echo "🎤🎵 Audio to Image With Sound (NEW - Returns JSON with image+sound):"
+echo "   POST $FUNCTION_URL/api/audio-to-image-with-sound"
 echo ""
 echo "📝 Audio to Prompt (Text Only):"
 echo "   POST $FUNCTION_URL/api/audio-to-prompt"
@@ -84,14 +87,50 @@ echo ""
 echo "🖼️  Generate Image (From Prompt):"
 echo "   POST $FUNCTION_URL/api/generate-image"
 echo ""
+echo "🖼️  Get Random Image:"
+echo "   GET $FUNCTION_URL/api/images/{category}"
+echo "   Categories: beach, mountain, forest, garden"
+echo ""
+echo "🎵 Get Random Sound (NEW):"
+echo "   GET $FUNCTION_URL/api/sounds/{category}"
+echo "   Categories: beach, mountain, forest, garden"
+echo ""
 echo "=================================================="
 echo "Example Usage:"
 echo "=================================================="
 echo ""
+echo "# Get random sound:"
+echo "curl \"$FUNCTION_URL/api/sounds/beach\" --output beach_sound.mp3"
+echo ""
+echo "# Audio to Image (original - returns PNG):"
 echo "curl -X POST \"$AUDIO_ENDPOINT\" \\"
 echo "  -H \"Content-Type: audio/wav\" \\"
 echo "  --data-binary @your_audio.wav \\"
 echo "  --output panorama.png"
+echo ""
+echo "# Audio to Image with Sound (returns JSON):"
+echo "curl -X POST \"$FUNCTION_URL/api/audio-to-image-with-sound\" \\"
+echo "  -H \"Content-Type: audio/wav\" \\"
+echo "  --data-binary @your_audio.wav"
+echo ""
+
+# Test GetRandomSound endpoint
+echo ""
+echo "3️⃣ Testing /api/sounds/beach endpoint..."
+SOUND_ENDPOINT="$FUNCTION_URL/api/sounds/beach"
+echo "   URL: $SOUND_ENDPOINT"
+
+SOUND_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" "$SOUND_ENDPOINT" --max-time 30)
+SOUND_HTTP_CODE=$(echo "$SOUND_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
+
+if [ "$SOUND_HTTP_CODE" = "200" ]; then
+    echo "✅ GetRandomSound endpoint is working (HTTP 200)"
+elif [ "$SOUND_HTTP_CODE" = "404" ]; then
+    echo "⚠️  No sounds found or endpoint not deployed yet (HTTP 404)"
+else
+    echo "⚠️  Sound endpoint returned HTTP $SOUND_HTTP_CODE"
+fi
+
 echo ""
 
 # Cleanup

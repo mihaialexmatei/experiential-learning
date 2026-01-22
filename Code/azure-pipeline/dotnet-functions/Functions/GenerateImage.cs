@@ -19,7 +19,8 @@ public class GenerateImage
 {
     private readonly ILogger<GenerateImage> _logger;
     private readonly HttpClient _httpClient;
-    private static readonly string ComfyUIUrl = 
+    
+    private static string GetComfyUIUrl() =>
         Environment.GetEnvironmentVariable("ComfyUIUrl") ?? throw new InvalidOperationException("ComfyUIUrl not configured");
 
     public GenerateImage(ILogger<GenerateImage> logger, IHttpClientFactory httpClientFactory)
@@ -51,7 +52,7 @@ public class GenerateImage
             _logger.LogInformation("Generating image for prompt: {Prompt}", requestData.Prompt);
 
             // Create ComfyUI client
-            var comfyClient = new ComfyUIClient(_httpClient, _logger, ComfyUIUrl);
+            var comfyClient = new ComfyUIClient(_httpClient, _logger, GetComfyUIUrl());
 
             // Generate image using ComfyUI workflow
             var imageBytes = await comfyClient.GenerateImageAsync(
@@ -84,7 +85,7 @@ public class GenerateImage
             { 
                 error = "ComfyUI service is unavailable. Check your ngrok connection.",
                 details = httpEx.Message,
-                comfyUIUrl = ComfyUIUrl
+                comfyUIUrl = GetComfyUIUrl()
             });
             return errorResponse;
         }

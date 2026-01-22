@@ -444,3 +444,16 @@ dependencies.lock
 
 Code/esp32/esp-diffuser/components/
 Code/esp32/esp-diffuser/managed_components/
+
+# Test scripts with hardcoded keys (DO NOT COMMIT)
+Code/azure-pipeline/test-from-anywhere.py
+Code/azure-pipeline/test-with-sound.py
+Code/azure-pipeline/test-with-sound-debug.py
+Code/azure-pipeline/test-simple.py
+
+# Image files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp

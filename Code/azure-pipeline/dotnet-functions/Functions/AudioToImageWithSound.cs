@@ -1,7 +1,9 @@
 using System.ClientModel;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Azure.AI.OpenAI;
+using Azure.Storage.Blobs;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.CognitiveServices.Speech;
@@ -13,16 +15,29 @@ using dotnet_functions.Services;
 namespace dotnet_functions.Functions;
 
 /// <summary>
-/// End-to-end HTTP trigger function that:
+/// End-to-end HTTP trigger function that returns BOTH image and sound for Unity integration:
 /// 1. Receives an audio file
 /// 2. Converts speech to text using Azure Speech Service
 /// 3. Enhances the text using Azure OpenAI to create a clear nature image prompt
 /// 4. Sends the prompt to ComfyUI via ngrok
-/// 5. Returns the generated 360° panorama image
+/// 5. Categorizes the prompt and retrieves a matching ambient sound
+/// 6. Returns JSON with base64 encoded image AND sound (easy for Unity to parse)
+/// 
+/// Response format:
+/// {
+///   "success": true,
+///   "originalTranscription": "...",
+///   "enhancedPrompt": "...",
+///   "negativePrompt": "...",
+///   "category": "beach|forest|mountain|garden",
+///   "image": "base64 encoded PNG",
+///   "sound": "base64 encoded MP3",
+///   "soundName": "beach_waves.mp3"
+/// }
 /// </summary>
-public class AudioToImage
+public class AudioToImageWithSound
 {
-    private readonly ILogger<AudioToImage> _logger;
+    private readonly ILogger<AudioToImageWithSound> _logger;
     private readonly HttpClient _httpClient;
     
     // ESP device control configuration
@@ -38,18 +53,18 @@ public class AudioToImage
         { "garden", "esp3-garden" }
     };
 
-    public AudioToImage(ILogger<AudioToImage> logger, IHttpClientFactory httpClientFactory)
+    public AudioToImageWithSound(ILogger<AudioToImageWithSound> logger, IHttpClientFactory httpClientFactory)
     {
         _logger = logger;
         _httpClient = httpClientFactory.CreateClient();
         _httpClient.Timeout = TimeSpan.FromMinutes(15); // ComfyUI can take longer with upscaling
     }
 
-    [Function("AudioToImage")]
+    [Function("AudioToImageWithSound")]
     public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "audio-to-image")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "audio-to-image-with-sound")] HttpRequestData req)
     {
-        _logger.LogInformation("AudioToImage function triggered");
+        _logger.LogInformation("AudioToImageWithSound function triggered");
 
         try
         {
@@ -61,7 +76,7 @@ public class AudioToImage
             if (audioBytes.Length == 0)
             {
                 var badRequest = req.CreateResponse(System.Net.HttpStatusCode.BadRequest);
-                await badRequest.WriteAsJsonAsync(new { error = "No audio file provided" });
+                await badRequest.WriteAsJsonAsync(new { success = false, error = "No audio file provided" });
                 return badRequest;
             }
 
@@ -74,7 +89,7 @@ public class AudioToImage
             if (string.IsNullOrWhiteSpace(transcribedText))
             {
                 var noSpeechResponse = req.CreateResponse(System.Net.HttpStatusCode.BadRequest);
-                await noSpeechResponse.WriteAsJsonAsync(new { error = "Could not transcribe audio. Please speak clearly." });
+                await noSpeechResponse.WriteAsJsonAsync(new { success = false, error = "Could not transcribe audio. Please speak clearly." });
                 return noSpeechResponse;
             }
 
@@ -83,7 +98,11 @@ public class AudioToImage
             _logger.LogInformation("Enhanced prompt: {Prompt}", enhancedPrompt);
             _logger.LogInformation("Negative prompt: {NegativePrompt}", negativePrompt);
 
-            // Step 3: Generate 360° panorama image using ComfyUI
+            // Step 3: Categorize the prompt for sound selection and ESP trigger
+            var category = CategorizePrompt(enhancedPrompt);
+            _logger.LogInformation("Categorized as: {Category}", category);
+
+            // Step 4: Generate 360° panorama image using ComfyUI
             _logger.LogInformation("Generating 360° panorama for prompt: {Prompt}", enhancedPrompt);
             
             var comfyClient = new ComfyUIClient(_httpClient, _logger, GetComfyUIUrl());
@@ -99,32 +118,29 @@ public class AudioToImage
 
             _logger.LogInformation("360° panorama generated successfully: {Size} bytes", imageBytes.Length);
 
-            // Categorize the prompt for sound selection
-            var category = CategorizePrompt(enhancedPrompt);
-            _logger.LogInformation("Categorized as: {Category}", category);
+            // Step 5: Get sound URL for the category
+            var soundUrl = $"https://endpoint-gtfbdtb7bwf2hsfb.westeurope-01.azurewebsites.net/api/sounds/{category}";
+            _logger.LogInformation("Sound URL for category {Category}: {SoundUrl}", category, soundUrl);
 
-            // Step 4: Trigger ESP device based on category (non-blocking)
+            // Step 6: Trigger ESP device (non-blocking)
             _ = Task.Run(async () =>
             {
-                try
-                {
-                    await TriggerEspDeviceAsync(enhancedPrompt);
-                }
-                catch (Exception espEx)
-                {
-                    _logger.LogWarning(espEx, "Failed to trigger ESP device, but image generation succeeded");
-                }
+                try { await TriggerEspDeviceAsync(category); }
+                catch { /* ignore */ }
             });
 
-            // Return the image with metadata in headers (including category for Unity to fetch sound)
+            // Step 7: Return the image directly (like AudioToImage) with metadata in headers
+            // This is much simpler and more reliable than JSON with base64
             var response = req.CreateResponse(System.Net.HttpStatusCode.OK);
             response.Headers.Add("Content-Type", "image/png");
             response.Headers.Add("X-Original-Transcription", Convert.ToBase64String(Encoding.UTF8.GetBytes(transcribedText)));
             response.Headers.Add("X-Enhanced-Prompt", Convert.ToBase64String(Encoding.UTF8.GetBytes(enhancedPrompt)));
             response.Headers.Add("X-Negative-Prompt", Convert.ToBase64String(Encoding.UTF8.GetBytes(negativePrompt)));
             response.Headers.Add("X-Category", category);
+            response.Headers.Add("X-Sound-Url", soundUrl);
             await response.Body.WriteAsync(imageBytes);
             
+            _logger.LogInformation("Response sent successfully with image and sound URL in headers");
             return response;
         }
         catch (HttpRequestException httpEx)
@@ -133,6 +149,7 @@ public class AudioToImage
             var errorResponse = req.CreateResponse(System.Net.HttpStatusCode.ServiceUnavailable);
             await errorResponse.WriteAsJsonAsync(new 
             { 
+                success = false,
                 error = "ComfyUI service is unavailable. Check your ngrok connection.",
                 details = httpEx.Message,
                 comfyUIUrl = GetComfyUIUrl()
@@ -141,9 +158,14 @@ public class AudioToImage
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing audio to image");
+            _logger.LogError(ex, "Error processing audio to image with sound");
             var errorResponse = req.CreateResponse(System.Net.HttpStatusCode.InternalServerError);
-            await errorResponse.WriteAsJsonAsync(new { error = ex.Message });
+            await errorResponse.WriteAsJsonAsync(new { 
+                success = false, 
+                error = ex.Message,
+                stackTrace = ex.StackTrace,
+                innerError = ex.InnerException?.Message
+            });
             return errorResponse;
         }
     }
@@ -343,15 +365,13 @@ public class AudioToImage
     }
 
     /// <summary>
-    /// Triggers the appropriate ESP device based on the prompt category
+    /// Triggers the appropriate ESP device based on the category
     /// </summary>
-    private async Task TriggerEspDeviceAsync(string enhancedPrompt)
+    private async Task TriggerEspDeviceAsync(string category)
     {
         try
         {
-            // Categorize the prompt
-            var category = CategorizePrompt(enhancedPrompt);
-            _logger.LogInformation("Categorized prompt as: {Category}", category);
+            _logger.LogInformation("Triggering ESP device for category: {Category}", category);
             
             // Get the device name from mapping
             if (!CategoryToDeviceMapping.TryGetValue(category, out var deviceName))
@@ -384,4 +404,38 @@ public class AudioToImage
             // Don't rethrow - this should not affect image generation
         }
     }
+}
+
+/// <summary>
+/// Response model for AudioToImageWithSound - designed for easy Unity integration
+/// Returns URLs to download image and sound separately (to avoid huge JSON responses)
+/// </summary>
+public class AudioToImageWithSoundResponse
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+    
+    [JsonPropertyName("originalTranscription")]
+    public string? OriginalTranscription { get; set; }
+    
+    [JsonPropertyName("enhancedPrompt")]
+    public string? EnhancedPrompt { get; set; }
+    
+    [JsonPropertyName("negativePrompt")]
+    public string? NegativePrompt { get; set; }
+    
+    [JsonPropertyName("category")]
+    public string? Category { get; set; }
+    
+    [JsonPropertyName("imageUrl")]
+    public string? ImageUrl { get; set; }  // URL to download the PNG image
+    
+    [JsonPropertyName("soundUrl")]
+    public string? SoundUrl { get; set; }  // URL to download the MP3 sound
+    
+    [JsonPropertyName("soundName")]
+    public string? SoundName { get; set; }
+    
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
 }

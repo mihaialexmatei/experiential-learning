@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 
 """
-Audio Recording and Image Generation Script
+Audio Recording and Image Generation Script with Category Upload
 
 Records audio from microphone, sends it to the Azure Functions API,
-and saves the generated 360° panorama image.
+saves the generated 360° panorama image locally, and uploads it to Azure Blob Storage
+in a specific category.
 
 Usage:
-    python3 record-and-generate.py
+    python3 record-categorize-and-generate.py
 
 Controls:
+    Select category first (beach, mountain, forest, garden)
     Press ENTER to start recording
     Press ENTER again to stop recording
 """
@@ -28,7 +30,7 @@ import requests
 from datetime import datetime
 from pathlib import Path
 
-# Try to import sounddevice, provide helpful error if not installed
+# Try to import required packages
 try:
     import sounddevice as sd
     import numpy as np
@@ -37,28 +39,81 @@ except ImportError:
     print("")
     print("Install with:")
     print("  pip3 install sounddevice numpy")
-    print("")
-    print("Or if you prefer pyaudio:")
-    print("  brew install portaudio")
-    print("  pip3 install pyaudio")
     sys.exit(1)
 
-# Configuration
-API_URL = os.getenv("AZURE_FUNCTION_URL", "https://endpoint-gtfbdtb7bwf2hsfb.canadacentral-01.azurewebsites.net/api/audio-to-image")
-FUNCTION_CODE = os.getenv("AZURE_FUNCTION_CODE", "")
-if FUNCTION_CODE:
-    API_URL = f"{API_URL}?code={FUNCTION_CODE}"
+try:
+    from azure.storage.blob import BlobServiceClient
+except ImportError:
+    print("❌ Azure Storage SDK not installed!")
+    print("")
+    print("Install with:")
+    print("  pip3 install azure-storage-blob")
+    sys.exit(1)
+
+# Configuration - HARDCODED FOR PORTABILITY (works on any PC without env vars)
+API_BASE = "https://endpoint-gtfbdtb7bwf2hsfb.westeurope-01.azurewebsites.net/api"
+FUNCTION_KEY = "3LKq6SmNriNUNQ6tXeSsE3JqGRKOj58YypNp5RDWhZ7-AzFu3Cr5Fg=="
+
+def get_api_url(endpoint):
+    """Build full API URL with function code"""
+    url = f"{API_BASE}/{endpoint}"
+    if FUNCTION_KEY:
+        url = f"{url}?code={FUNCTION_KEY}"
+    return url
+
+STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+STORAGE_CONTAINER_NAME = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "premade-scenes")
+
 SAMPLE_RATE = 16000  # Azure Speech Service works best with 16kHz
 CHANNELS = 1  # Mono audio
-RESULTS_DIR = Path(__file__).parent / "results"
+PANORAMA_OUTPUT_DIR = Path(__file__).parent / "dotnet-functions" / "panorama_output"
 TEMP_DIR = Path(__file__).parent / "temp"
 
+# Valid categories
+VALID_CATEGORIES = ["beach", "mountain", "forest", "garden"]
+
 def setup_directories():
-    """Create results and temp directories if they don't exist"""
-    RESULTS_DIR.mkdir(exist_ok=True)
+    """Create panorama_output and temp directories if they don't exist"""
+    PANORAMA_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     TEMP_DIR.mkdir(exist_ok=True)
-    print(f"📁 Results will be saved to: {RESULTS_DIR.absolute()}")
+    print(f"📁 Images will be saved to: {PANORAMA_OUTPUT_DIR.absolute()}")
     print("")
+
+def select_category():
+    """Prompt user to select a category"""
+    print("📂 Available Categories:")
+    print("")
+    for i, category in enumerate(VALID_CATEGORIES, 1):
+        print(f"  {i}. {category.capitalize()}")
+    print("")
+    
+    while True:
+        try:
+            choice = input("Select category (1-4 or name): ").strip().lower()
+            
+            # Check if it's a number
+            if choice.isdigit():
+                index = int(choice) - 1
+                if 0 <= index < len(VALID_CATEGORIES):
+                    category = VALID_CATEGORIES[index]
+                    print(f"✅ Selected: {category.capitalize()}")
+                    print("")
+                    return category
+            
+            # Check if it's a category name
+            if choice in VALID_CATEGORIES:
+                print(f"✅ Selected: {choice.capitalize()}")
+                print("")
+                return choice
+            
+            print(f"❌ Invalid selection. Please choose 1-4 or enter: {', '.join(VALID_CATEGORIES)}")
+            print("")
+        except KeyboardInterrupt:
+            print("\n\n⚠️  Cancelled by user")
+            sys.exit(1)
+        except:
+            print("❌ Invalid input. Please try again.")
+            print("")
 
 def record_audio():
     """Record audio from the microphone until Enter is pressed"""
@@ -113,9 +168,10 @@ def save_wav(recording, filename):
 
 def send_to_api(audio_file):
     """Send audio file to the API and get the generated image"""
+    api_url = get_api_url("audio-to-image")
     print("")
     print("📤 Sending audio to Azure Functions API...")
-    print(f"   Endpoint: {API_URL}")
+    print(f"   Endpoint: {api_url[:70]}...")
     print("")
     
     try:
@@ -127,7 +183,7 @@ def send_to_api(audio_file):
             print("")
             
             response = requests.post(
-                API_URL,
+                api_url,
                 data=f,
                 headers=headers,
                 timeout=900  # 15 minutes timeout
@@ -171,8 +227,8 @@ def send_to_api(audio_file):
         print(f"❌ Error: {e}")
         return None, None, None
 
-def save_image(image_data, transcription=""):
-    """Save the generated image with timestamp"""
+def save_image_locally(image_data, category, transcription=""):
+    """Save the generated image locally with timestamp and category"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     # Create a safe filename from transcription
@@ -182,44 +238,98 @@ def save_image(image_data, transcription=""):
         safe_name = safe_name.replace(' ', '_')
         safe_name = f"_{safe_name}"
     
-    filename = RESULTS_DIR / f"panorama_{timestamp}{safe_name}.png"
+    filename = PANORAMA_OUTPUT_DIR / f"{category}_panorama_{timestamp}{safe_name}.png"
     
     with open(filename, 'wb') as f:
         f.write(image_data)
     
-    print(f"🖼️  Image saved: {filename}")
+    print(f"🖼️  Image saved locally: {filename}")
     print(f"   Size: {len(image_data) / 1024 / 1024:.2f} MB")
     
     return filename
 
-def save_metadata(filename, transcription, prompt):
+def upload_to_blob_storage(image_data, category, transcription=""):
+    """Upload the generated image to Azure Blob Storage with category prefix"""
+    if not STORAGE_CONNECTION_STRING:
+        print("⚠️  Warning: AZURE_STORAGE_CONNECTION_STRING not set in .env")
+        print("   Skipping blob upload")
+        return None
+    
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Create blob name with category prefix
+        safe_name = ""
+        if transcription:
+            safe_name = "".join(c for c in transcription[:30] if c.isalnum() or c in (' ', '-', '_')).strip()
+            safe_name = safe_name.replace(' ', '_')
+            safe_name = f"_{safe_name}"
+        
+        blob_name = f"{category}_panorama_{timestamp}{safe_name}.png"
+        
+        # Create blob service client
+        blob_service_client = BlobServiceClient.from_connection_string(STORAGE_CONNECTION_STRING)
+        
+        # Get container client (create container if it doesn't exist)
+        container_client = blob_service_client.get_container_client(STORAGE_CONTAINER_NAME)
+        try:
+            container_client.get_container_properties()
+        except:
+            print(f"📦 Creating container: {STORAGE_CONTAINER_NAME}")
+            container_client.create_container()
+        
+        # Upload blob
+        blob_client = container_client.get_blob_client(blob_name)
+        
+        print(f"☁️  Uploading to Azure Blob Storage...")
+        blob_client.upload_blob(image_data, overwrite=True)
+        
+        blob_url = blob_client.url
+        print(f"✅ Uploaded to blob: {blob_name}")
+        print(f"   URL: {blob_url}")
+        
+        return blob_url
+    
+    except Exception as e:
+        print(f"❌ Failed to upload to blob storage: {e}")
+        return None
+
+def save_metadata(filename, category, transcription, prompt, blob_url=None):
     """Save metadata as a text file"""
     metadata_file = filename.with_suffix('.txt')
     
     with open(metadata_file, 'w') as f:
         f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Category: {category.capitalize()}\n")
         f.write(f"\n")
         f.write(f"Original Transcription:\n")
         f.write(f"{transcription}\n")
         f.write(f"\n")
         f.write(f"Enhanced Prompt:\n")
         f.write(f"{prompt}\n")
+        if blob_url:
+            f.write(f"\n")
+            f.write(f"Blob Storage URL:\n")
+            f.write(f"{blob_url}\n")
     
     print(f"📄 Metadata saved: {metadata_file}")
 
 def main():
     """Main function"""
     print("")
-    print("🎨 Audio to 360° Panorama Generator")
+    print("🎨 Audio to 360° Panorama Generator with Category Upload")
     print("=" * 60)
     print("")
     
     # Setup
     setup_directories()
     
+    # Step 1: Select category BEFORE recording
+    category = select_category()
+    
     # Check if API is accessible
     try:
-        response = requests.get("https://endpoint-gtfbdtb7bwf2hsfb.canadacentral-01.azurewebsites.net", timeout=5)
+        response = requests.get("https://endpoint-gtfbdtb7bwf2hsfb.westeurope-01.azurewebsites.net", timeout=5)
         print("✅ Azure API is accessible")
         print("")
     except:
@@ -231,31 +341,34 @@ def main():
             sys.exit(1)
         print("")
     
-    # Record audio (press Enter to start/stop)
+    # Step 2: Record audio (press Enter to start/stop)
     recording = record_audio()
     
-    # Save temporary WAV file
+    # Step 3: Save temporary WAV file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     temp_wav = TEMP_DIR / f"recording_{timestamp}.wav"
     save_wav(recording, temp_wav)
     
-    # Send to API
+    # Step 4: Send to API
     image_data, transcription, prompt = send_to_api(temp_wav)
     
     if image_data:
-        # Save image
-        image_file = save_image(image_data, transcription)
+        # Step 5: Save image locally
+        image_file = save_image_locally(image_data, category, transcription)
         
-        # Save metadata
+        # Step 6: Upload to blob storage
+        blob_url = upload_to_blob_storage(image_data, category, transcription)
+        
+        # Step 7: Save metadata
         if transcription and prompt:
-            save_metadata(image_file, transcription, prompt)
+            save_metadata(image_file, category, transcription, prompt, blob_url)
         
         print("")
         print("=" * 60)
         print("✅ SUCCESS! Your 360° panorama is ready!")
         print("=" * 60)
         print("")
-        print(f"📂 Open folder: open {RESULTS_DIR.absolute()}")
+        print(f"📂 Open folder: open {PANORAMA_OUTPUT_DIR.absolute()}")
         print(f"🖼️  Open image:  open {image_file.absolute()}")
         print("")
     else:
