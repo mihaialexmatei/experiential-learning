@@ -25,6 +25,8 @@ DEVICE_MAPPING = {
     'esp0-breach': 'esp0-breach',
     'esp1-forest': 'esp1-forest',
     'esp2-garden': 'esp2-garden',
+    'esp2-mountain': 'esp3-mountain',  # Redirect esp2-mountain to esp3-mountain
+    'esp3-garden': 'esp2-garden',  # Redirect esp3-garden to esp2-garden
     'esp3-mountain': 'esp3-mountain',
     # Add more devices as needed
 }

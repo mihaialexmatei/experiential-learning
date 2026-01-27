@@ -49,8 +49,8 @@ public class AudioToImageWithSound
     {
         { "beach", "esp0-beach" },
         { "forest", "esp1-forest" },
-        { "mountain", "esp2-mountain" },
-        { "garden", "esp3-garden" }
+        { "garden", "esp2-garden" },
+        { "mountain", "esp3-mountain" }
     };
 
     public AudioToImageWithSound(ILogger<AudioToImageWithSound> logger, IHttpClientFactory httpClientFactory)

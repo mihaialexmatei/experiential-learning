@@ -1,0 +1,15 @@
+{
+    "IsEncrypted": false,
+    "Values": {
+        "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+        "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+        "StorageConnectionString": "DefaultEndpointsProtocol=https;AccountName=YOUR_STORAGE_ACCOUNT;AccountKey=YOUR_STORAGE_KEY;EndpointSuffix=core.windows.net",
+        "SpeechServiceEndpoint": "https://YOUR_REGION.api.cognitive.microsoft.com/",
+        "SpeechServiceRegion": "YOUR_REGION",
+        "SpeechServiceKey": "YOUR_SPEECH_SERVICE_KEY",
+        "OpenAIEndpoint": "https://YOUR_OPENAI_RESOURCE.openai.azure.com/",
+        "OpenAIKey": "YOUR_OPENAI_KEY",
+        "OpenAIDeploymentName": "gpt-4o-mini",
+        "ComfyUIUrl": "YOUR_COMFYUI_ENDPOINT"
+    }
+}

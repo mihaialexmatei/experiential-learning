@@ -1,0 +1,174 @@
+# =================================================
+# EXPERIENTIAL LEARNING PROJECT - ROOT GITIGNORE
+# =================================================
+
+# =================================================
+# SENSITIVE FILES - NEVER COMMIT!
+# =================================================
+# Environment files with secrets
+.env
+!.env.example.clean
+
+# Local settings (Azure Functions) - contains API keys
+local.settings.json
+!local.settings.example.json
+
+# ESP32 credentials
+**/config.h
+!**/config.example.h
+
+# =================================================
+# OPERATING SYSTEM
+# =================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# =================================================
+# IDE AND EDITORS
+# =================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+
+# =================================================
+# PYTHON
+# =================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.python_packages/
+.venv/
+venv/
+ENV/
+
+# =================================================
+# .NET / C# BUILD OUTPUTS
+# =================================================
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+publish/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+
+# Deployment packages
+*.zip
+
+# =================================================
+# AZURE FUNCTIONS
+# =================================================
+.funcignore
+.azurefunctions/
+
+# Azurite local storage emulator
+__azurite_db_*.json
+AzuriteConfig
+
+# =================================================
+# ESP-IDF / ESP32 BUILD
+# =================================================
+**/build/
+**/managed_components/
+sdkconfig
+sdkconfig.old
+dependencies.lock
+*.bin
+*.elf
+*.map
+.clangd
+
+# =================================================
+# IMAGES - GENERATED/TEST OUTPUT
+# =================================================
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+
+# Output directories with generated content
+panorama_output/
+**/panorama_output/
+**/results/
+**/retrieved_images/
+
+# =================================================
+# AUDIO FILES - TEST/TEMPORARY
+# =================================================
+*.mp3
+*.wav
+*.ogg
+*.flac
+*.aac
+
+# Audio/temp directories
+**/temp/
+**/test_output/
+**/ambient_sound/
+
+# =================================================
+# TEST AND TEMPORARY FILES
+# =================================================
+test_output/
+temp/
+*.tmp
+*.temp
+*.log
+
+# =================================================
+# DOCUMENTATION (keep report.txt if needed)
+# =================================================
+# Uncomment if you want to exclude the report
+# report.txt
+
+# =================================================
+# CERTIFICATES AND KEYS
+# =================================================
+*.pem
+*.key
+*.crt
+*.cer
+*.pfx
+*.p12
+
+# =================================================
+# NODE.JS (if applicable)
+# =================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
