@@ -17,11 +17,25 @@
 #include "cJSON.h"
 #include "mbedtls/md.h"
 #include "mbedtls/base64.h"
-#include "esp_pm.h"
 
-// Include configuration file with credentials
-// Copy config.example.h to config.h and fill in your values
-#include "config.h"
+// WiFi Configuration
+#define WIFI_SSID      "Howest-SmartTech-Hub"
+#define WIFI_PASSWORD  "zPovZi0RyeLVu8Jim"
+
+// Fallback WiFi Configuration
+#define WIFI_SSID_2      "alexpie"
+#define WIFI_PASSWORD_2  "Parola1!"
+
+// Azure IoT Hub Configuration
+#define IOT_HUB_HOSTNAME "espcontrol.azure-devices.net"
+#define DEVICE_ID        "esp2-garden"
+#define DEVICE_KEY       "/YZltTRS93nXap3INSd/EauBdsxJ4RCeuWDK75QrvDQ="
+
+// Define the relay control pin
+#define RELAY_PIN GPIO_NUM_16
+#define FAN_PIN GPIO_NUM_27
+#define FAN_PIN_2 GPIO_NUM_26
+#define RELAY_PIN_2 GPIO_NUM_2
 
 static const char *TAG = "ESP-DIFFUSER";
 static EventGroupHandle_t s_wifi_event_group;
@@ -303,26 +317,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
-// Configure power settings to prevent power bank idle
-void configure_power_settings(void) {
-    // Disable WiFi power saving - this is the main power consumption increase
-    esp_wifi_set_ps(WIFI_PS_NONE);
-    ESP_LOGI(TAG, "WiFi power saving disabled to prevent power bank idle");
-    
-    // Try to configure CPU to run at maximum frequency (optional, may not be supported)
-    esp_pm_config_t pm_config = {
-        .max_freq_mhz = 240,
-        .min_freq_mhz = 240,
-        .light_sleep_enable = false
-    };
-    esp_err_t ret = esp_pm_configure(&pm_config);
-    if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "CPU frequency locked to 240MHz");
-    } else {
-        ESP_LOGW(TAG, "Power management not supported (error 0x%x), WiFi power save already disabled", ret);
-    }
-}
-
 // Initialize Azure IoT Hub connection
 void azure_iot_init(void) {
     time_t now;
@@ -387,7 +381,6 @@ void app_main(void) {
     ESP_LOGI(TAG, "GPIO 27 and 26 configured for fan control");
 
     wifi_init_sta();
-    configure_power_settings();
     init_sntp();
     azure_iot_init();
 

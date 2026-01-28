@@ -119,7 +119,6 @@ coverage.xml
 
 # Environment files
 .env
-.env.example
 .venv
 env/
 venv/
