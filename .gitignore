@@ -457,3 +457,4 @@ Code/azure-pipeline/test-simple.py
 *.jpeg
 *.gif
 *.bmp
+.DS_Store
